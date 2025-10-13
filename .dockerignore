@@ -1,0 +1,24 @@
+*cache*/
+.vscode/
+.venv/
+
+# Docker scripts
+docker-build.sh
+docker-run.sh
+
+# Environment variable files
+# Use `docker run --env-file` to pass in your own environment variables
+*.env
+
+# Git
+.git/
+.gitignore
+
+# Fomatting and linting
+.markdownlint.yaml
+.pre-commit-config.yaml
+.ruff.toml
+.yamlfmt
+
+# Notebooks are for testing purposes, exclude them from the image
+notebooks/

@@ -17,5 +17,5 @@ wheels/
 notebooks/
 scratch/
 
-# Ruff
-.ruff_cache/
+# Cache directories
+*cache*/
