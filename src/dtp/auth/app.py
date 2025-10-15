@@ -7,6 +7,7 @@ from typing import Annotated
 from uuid import uuid4
 
 from fastapi import FastAPI, Form, HTTPException, Response, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from jose.exceptions import ExpiredSignatureError, JOSEError
 from pydantic import BaseModel
@@ -37,6 +38,14 @@ async def lifespan(_):
     # Perform any shutdown actions here
 
 
+# CORS origins for local development
+origins = [
+    "http://localhost",
+    "http://localhost:5173",  # Vite default port
+    "http://localhost:8000",  # FastAPI default port
+]
+
+
 app = FastAPI(
     title="DT Auth API",
     summary="Authentication service for the DT platform",
@@ -58,6 +67,13 @@ validated using the `/validate` endpoint.
     # Uncomment the following line to disable public OpenAPI schema exposure;
     # this also disables the Swagger UI and ReDoc endpoints.
     # openapi_url=None,
+)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -104,6 +120,10 @@ def login(credentials: Annotated[LoginCredentials, Form()]) -> LoginResponse:
 
     On success, returns a JWT session token valid for 24 hours.
     """
+    if not credentials.username or not credentials.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Missing username or password"
+        )
     if (user := validate_user(credentials.username, credentials.password)) is not None:
         token = SessionToken.new_token(
             claims={
@@ -116,7 +136,9 @@ def login(credentials: Annotated[LoginCredentials, Form()]) -> LoginResponse:
             key=settings.jwt_key,
         )
         return LoginResponse(token=token)
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username or password"
+    )
 
 
 @app.post(
