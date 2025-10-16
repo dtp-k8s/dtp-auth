@@ -6,7 +6,7 @@ from time import time
 from typing import Annotated
 from uuid import uuid4
 
-from fastapi import FastAPI, Form, HTTPException, Response, status
+from fastapi import FastAPI, Form, Header, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
 from jose.exceptions import ExpiredSignatureError, JOSEError
@@ -38,11 +38,10 @@ async def lifespan(_):
     # Perform any shutdown actions here
 
 
-# CORS origins for local development
+# CORS origins
 origins = [
-    "http://localhost",
-    "http://localhost:5173",  # Vite default port
-    "http://localhost:8000",  # FastAPI default port
+    "https://localhost:5173",  # Vite default port for local development
+    "https://yc.ngrok.dev",  # ngrok domain for our Kubernetes cluster
 ]
 
 
@@ -71,9 +70,9 @@ validated using the `/validate` endpoint.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Authorized-User"],
 )
 
 
@@ -141,7 +140,7 @@ def login(credentials: Annotated[LoginCredentials, Form()]) -> LoginResponse:
     )
 
 
-@app.post(
+@app.get(
     "/validate",
     tags=["auth"],
     summary="Validate Token",
@@ -152,7 +151,7 @@ def login(credentials: Annotated[LoginCredentials, Form()]) -> LoginResponse:
         ),
     },
 )
-def validate_token(token: Annotated[str, Form()], response: Response) -> Message:
+def validate_token(session_token: Annotated[str, Header()], response: Response) -> Message:
     """Validate the provided JWT token, or return 401 Unauthorized if invalid or expired.
 
     If valid, the response will include the 'X-Authorized-User' header with the user ID.  This is
@@ -160,8 +159,8 @@ def validate_token(token: Annotated[str, Form()], response: Response) -> Message
     ForwardAuth middleware.
     """
     try:
-        token: SessionToken = SessionToken(token, key=settings.jwt_key)
-        response.headers["X-Authorized-User"] = token.sub.hex
+        parsed_token: SessionToken = SessionToken(session_token, key=settings.jwt_key)
+        response.headers["X-Authorized-User"] = parsed_token.sub.hex
         return Message(detail="Token is valid")
     except ExpiredSignatureError as e:
         raise HTTPException(
